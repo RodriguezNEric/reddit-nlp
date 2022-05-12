@@ -11,7 +11,7 @@ initial_sidebar_state='expanded'
 
 st.title('Mental Health Screening Tool')
 
-st.write('Use the sidebar to select a page to view')
+st.write('Use the sidebar to select a page to view.')
 
 page = st.sidebar.selectbox(
 'Page',
@@ -27,8 +27,8 @@ if page == 'About':
     This tool demonstrates my models predictive capabilities which is a first step in creating this type of screening tool.
 
     If you enjoy this project, visit my portfolio or get in touch with me via LinkedIn!
-    -Portfolio: https://rodriguezneric.github.io
-    -LinkedIn: https://www.linkedin.com/in/eric-n-rodriguez/)
+    - Portfolio: https://rodriguezneric.github.io
+    - LinkedIn: https://www.linkedin.com/in/eric-n-rodriguez/)
 
     '''
     )
@@ -54,7 +54,7 @@ elif page == 'Words!':
     ''')
 
     wc_3 = Image.open('./images/shared_word_wc.png')
-    st.image(wc_3, caption='Most Common Words in Both Subreddits')
+    st.image(wc_3, caption='Most Common Words Shared by Both Subreddits')
     st.write('''
 
     ''')
@@ -72,7 +72,7 @@ elif page == 'Mental Health Prediction':
     ''')
 
     # Pickle path
-    with open('.data/production_model.pkl', 'rb') as pickle_in:
+    with open('./data/production_model.pkl', 'rb') as pickle_in:
         model = pickle.load(pickle_in)
 
     # Text input

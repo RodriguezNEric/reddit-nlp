@@ -1,9 +1,3 @@
-"""
-This file specifies the packages to be installed
-in order for the streamlit application hosted on Heroku
-to run properly
-"""
-python==3.8.5
 streamlit==0.77.0
 pandas==1.4.1
 scikit-learn==1.0.2

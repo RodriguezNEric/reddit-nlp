@@ -18,7 +18,7 @@ page = st.sidebar.selectbox(
 ('About', 'Words!', 'Mental Health Prediction')
 )
 
-if page == 'About'
+if page == 'About':
     st.subheader('About This Project')
     st.write('''
     This is a Streamlit app that showcases my classification model.

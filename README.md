@@ -25,6 +25,8 @@
 ## Streamlit Application
 Checkout the streamlit application I created that demonstrates how my model can be utilized - hosted by [Heroku!](https://ericnrodriguez-reddit-nlp-app.herokuapp.com)
 
+---
+
 ## Technology & Methods
 
 **Technology:** Python, Jupyter Notebook, GitHub, Git, nltk, requests, pandas, numpy, matplotlib, scikit-learn, requests, regex, time, pickle, PIL, wordcloud, Streamlit, Heroku, Tableau

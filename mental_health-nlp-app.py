@@ -41,19 +41,19 @@ elif page == 'Words!':
     '''
     )
 
-    wc_1 = Image.open('../images/mentalhealth_wc.png')
+    wc_1 = Image.open('./images/mentalhealth_wc.png')
     st.image(wc_1, caption='Most Common Words in r/mentalhealth')
     st.write('''
 
     ''')
 
-    wc_2 = Image.open('../images/covid_wc.png')
+    wc_2 = Image.open('./images/covid_wc.png')
     st.image(wc_2, caption='Most Common Words in r/CoronavirusUS')
     st.write('''
 
     ''')
 
-    wc_3 = Image.open('../images/shared_word_wc.png')
+    wc_3 = Image.open('./images/shared_word_wc.png')
     st.image(wc_3, caption='Most Common Words in Both Subreddits')
     st.write('''
 
@@ -72,7 +72,7 @@ elif page == 'Mental Health Prediction':
     ''')
 
     # Pickle path
-    with open('..data/production_model.pkl', 'rb') as pickle_in:
+    with open('.data/production_model.pkl', 'rb') as pickle_in:
         model = pickle.load(pickle_in)
 
     # Text input

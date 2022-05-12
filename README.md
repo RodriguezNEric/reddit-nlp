@@ -3,6 +3,7 @@
 ---
 
 ## Overview
+- [Web App](#Streamlit-Application)
 - [Technologies Used](#Technology-&-Methods)
 - [Executive Summary](#Executive-Summary)
 - [Introduction](#Introduction)
@@ -20,6 +21,9 @@
   - [Next Steps](#Next-Steps)
 
 ---
+
+## Streamlit Application
+Checkout the streamlit application I created that demonstrates how my model can be utilized - hosted by [Heroku!](https://ericnrodriguez-reddit-nlp-app.herokuapp.com)
 
 ## Technology & Methods
 

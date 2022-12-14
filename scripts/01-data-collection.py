@@ -1,733 +1,257 @@
-{
- "cells": [
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "# Project 3: Reddit Scraping & NLP\n",
-    "\n",
-    "## Part 1 - Scraping"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 1,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Import libraries\n",
-    "import pandas as pd\n",
-    "import numpy as np\n",
-    "import requests\n",
-    "import json\n",
-    "import csv\n",
-    "import time\n",
-    "import datetime as dt\n",
-    "import math\n",
-    "import itertools"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 2,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# pushshift url template\n",
-    "# https://api.pushshift.io/reddit/search/submission?subreddit={}&after={}&before={}&size={}\n",
-    "# max request size is 100!"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "### Data Collection"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "#### Scraping data from mentalhealth subreddit"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 3,
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stdout",
-     "output_type": "stream",
-     "text": [
-      "0\n",
-      "100\n",
-      "200\n",
-      "300\n",
-      "400\n",
-      "500\n",
-      "600\n",
-      "700\n",
-      "800\n",
-      "900\n",
-      "1000\n",
-      "1100\n",
-      "1200\n",
-      "1300\n",
-      "1400\n",
-      "1500\n",
-      "1600\n",
-      "1700\n",
-      "1800\n",
-      "1900\n"
-     ]
-    }
-   ],
-   "source": [
-    "# Subreddit to be scraped\n",
-    "subreddit = 'mentalhealth'\n",
-    "\n",
-    "# Time parameters\n",
-    "after = 1611140400 # epoch timestamp for 1/20/2021 6am GMT -04:00 DST\n",
-    "before = 1618912800 # epoch timestamp for 4/20/2021 6am GMT -04:00 DST\n",
-    "\n",
-    "# h/t stack overflow \n",
-    "# Set up dict for info to collect\n",
-    "posts_data_mh = {'created_utc':[],\n",
-    "              'url':[],\n",
-    "              'full_link':[],\n",
-    "              'id':[],\n",
-    "              'num_comments':[],\n",
-    "              'title':[],\n",
-    "              'selftext':[],\n",
-    "              'subreddit':[]\n",
-    "              }\n",
-    "\n",
-    "headers = {'User-agent': 'Reddit Post Collector'}\n",
-    "\n",
-    "# Set up function to return submission data\n",
-    "def get_submissions(**kwargs):\n",
-    "    res = requests.get(\"https://api.pushshift.io/reddit/submission/search/\",\n",
-    "                       params=kwargs,\n",
-    "                       headers=headers)\n",
-    "    if res.status_code == 200:\n",
-    "        data = res.json()\n",
-    "        return data['data']\n",
-    "    else:\n",
-    "        print(res.status_code)\n",
-    "\n",
-    "count = 0\n",
-    "\n",
-    "# Collect up to 2,000 posts as long as there are posts to collect\n",
-    "while True and len(set(posts_data_mh['created_utc'])) <= 1900:\n",
-    "    print(count)\n",
-    "    count += 1*100\n",
-    "    \n",
-    "    posts = get_submissions(subreddit=subreddit,\n",
-    "                            size=100,\n",
-    "                            after=after, #pulls submissions only after this date\n",
-    "                            before=before, #pulls submissions only before this date\n",
-    "                            sort='asc', #returns data with earliest date first\n",
-    "                            sort_type='created_utc')\n",
-    "    if not posts:\n",
-    "        break\n",
-    "\n",
-    "    for post in posts:\n",
-    "        # Keep track of position for the next call in while loop\n",
-    "        after = post['created_utc']\n",
-    "\n",
-    "        # Append info to posts_data dict\n",
-    "        posts_data_mh['created_utc'].append(post['created_utc'])\n",
-    "        posts_data_mh['url'].append(post['url'])\n",
-    "        posts_data_mh['full_link'].append(post['full_link'])\n",
-    "        posts_data_mh['id'].append(post['id'])\n",
-    "        posts_data_mh['num_comments'].append(post['num_comments'])\n",
-    "        posts_data_mh['title'].append(post['title'])\n",
-    "        posts_data_mh['selftext'].append(post['selftext'])\n",
-    "        posts_data_mh['subreddit'].append(post['subreddit'])\n",
-    "\n",
-    "    time.sleep(1)\n",
-    "\n",
-    "# Save posts to dataframe\n",
-    "mentalhealth = pd.DataFrame(posts_data_mh)\n",
-    "\n",
-    "# Create `timestamp` column with `created_utc` translated into readable time\n",
-    "def get_date(created):\n",
-    "    return dt.datetime.fromtimestamp(created)\n",
-    "\n",
-    "_timestamp = mentalhealth['created_utc'].apply(get_date)\n",
-    "mentalhealth = mentalhealth.assign(timestamp = _timestamp)"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 4,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/plain": [
-       "(2000, 9)"
-      ]
-     },
-     "execution_count": 4,
-     "metadata": {},
-     "output_type": "execute_result"
-    }
-   ],
-   "source": [
-    "mentalhealth.shape"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 5,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/html": [
-       "<div>\n",
-       "<style scoped>\n",
-       "    .dataframe tbody tr th:only-of-type {\n",
-       "        vertical-align: middle;\n",
-       "    }\n",
-       "\n",
-       "    .dataframe tbody tr th {\n",
-       "        vertical-align: top;\n",
-       "    }\n",
-       "\n",
-       "    .dataframe thead th {\n",
-       "        text-align: right;\n",
-       "    }\n",
-       "</style>\n",
-       "<table border=\"1\" class=\"dataframe\">\n",
-       "  <thead>\n",
-       "    <tr style=\"text-align: right;\">\n",
-       "      <th></th>\n",
-       "      <th>created_utc</th>\n",
-       "      <th>url</th>\n",
-       "      <th>full_link</th>\n",
-       "      <th>id</th>\n",
-       "      <th>num_comments</th>\n",
-       "      <th>title</th>\n",
-       "      <th>selftext</th>\n",
-       "      <th>subreddit</th>\n",
-       "      <th>timestamp</th>\n",
-       "    </tr>\n",
-       "  </thead>\n",
-       "  <tbody>\n",
-       "    <tr>\n",
-       "      <th>1995</th>\n",
-       "      <td>1611781802</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>l6eh5e</td>\n",
-       "      <td>4</td>\n",
-       "      <td>I can't do my math homework because it's causi...</td>\n",
-       "      <td>It's only 8 problems, but he keeps adding step...</td>\n",
-       "      <td>mentalhealth</td>\n",
-       "      <td>2021-01-27 16:10:02</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>1996</th>\n",
-       "      <td>1611781905</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>l6ei65</td>\n",
-       "      <td>4</td>\n",
-       "      <td>Venting</td>\n",
-       "      <td>I hate my family with every inch of my body. I...</td>\n",
-       "      <td>mentalhealth</td>\n",
-       "      <td>2021-01-27 16:11:45</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>1997</th>\n",
-       "      <td>1611782375</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>l6emkj</td>\n",
-       "      <td>2</td>\n",
-       "      <td>Could I be suffering from Bipolar Disorder?</td>\n",
-       "      <td>Hello, I've been struggling with my mental hea...</td>\n",
-       "      <td>mentalhealth</td>\n",
-       "      <td>2021-01-27 16:19:35</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>1998</th>\n",
-       "      <td>1611783192</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>l6ewwu</td>\n",
-       "      <td>2</td>\n",
-       "      <td>Covid linked to risk of mental illness and bra...</td>\n",
-       "      <td>[https://amp.theguardian.com/world/2021/jan/25...</td>\n",
-       "      <td>mentalhealth</td>\n",
-       "      <td>2021-01-27 16:33:12</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>1999</th>\n",
-       "      <td>1611783581</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>https://www.reddit.com/r/mentalhealth/comments...</td>\n",
-       "      <td>l6f2vj</td>\n",
-       "      <td>4</td>\n",
-       "      <td>my mom just called my anxiety annoying</td>\n",
-       "      <td>[deleted]</td>\n",
-       "      <td>mentalhealth</td>\n",
-       "      <td>2021-01-27 16:39:41</td>\n",
-       "    </tr>\n",
-       "  </tbody>\n",
-       "</table>\n",
-       "</div>"
-      ],
-      "text/plain": [
-       "      created_utc                                                url  \\\n",
-       "1995   1611781802  https://www.reddit.com/r/mentalhealth/comments...   \n",
-       "1996   1611781905  https://www.reddit.com/r/mentalhealth/comments...   \n",
-       "1997   1611782375  https://www.reddit.com/r/mentalhealth/comments...   \n",
-       "1998   1611783192  https://www.reddit.com/r/mentalhealth/comments...   \n",
-       "1999   1611783581  https://www.reddit.com/r/mentalhealth/comments...   \n",
-       "\n",
-       "                                              full_link      id  num_comments  \\\n",
-       "1995  https://www.reddit.com/r/mentalhealth/comments...  l6eh5e             4   \n",
-       "1996  https://www.reddit.com/r/mentalhealth/comments...  l6ei65             4   \n",
-       "1997  https://www.reddit.com/r/mentalhealth/comments...  l6emkj             2   \n",
-       "1998  https://www.reddit.com/r/mentalhealth/comments...  l6ewwu             2   \n",
-       "1999  https://www.reddit.com/r/mentalhealth/comments...  l6f2vj             4   \n",
-       "\n",
-       "                                                  title  \\\n",
-       "1995  I can't do my math homework because it's causi...   \n",
-       "1996                                            Venting   \n",
-       "1997        Could I be suffering from Bipolar Disorder?   \n",
-       "1998  Covid linked to risk of mental illness and bra...   \n",
-       "1999             my mom just called my anxiety annoying   \n",
-       "\n",
-       "                                               selftext     subreddit  \\\n",
-       "1995  It's only 8 problems, but he keeps adding step...  mentalhealth   \n",
-       "1996  I hate my family with every inch of my body. I...  mentalhealth   \n",
-       "1997  Hello, I've been struggling with my mental hea...  mentalhealth   \n",
-       "1998  [https://amp.theguardian.com/world/2021/jan/25...  mentalhealth   \n",
-       "1999                                          [deleted]  mentalhealth   \n",
-       "\n",
-       "               timestamp  \n",
-       "1995 2021-01-27 16:10:02  \n",
-       "1996 2021-01-27 16:11:45  \n",
-       "1997 2021-01-27 16:19:35  \n",
-       "1998 2021-01-27 16:33:12  \n",
-       "1999 2021-01-27 16:39:41  "
-      ]
-     },
-     "execution_count": 5,
-     "metadata": {},
-     "output_type": "execute_result"
-    }
-   ],
-   "source": [
-    "# Check r/mentalhealth dataframe\n",
-    "mentalhealth.tail()"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 6,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/plain": [
-       "created_utc              int64\n",
-       "url                     object\n",
-       "full_link               object\n",
-       "id                      object\n",
-       "num_comments             int64\n",
-       "title                   object\n",
-       "selftext                object\n",
-       "subreddit               object\n",
-       "timestamp       datetime64[ns]\n",
-       "dtype: object"
-      ]
-     },
-     "execution_count": 6,
-     "metadata": {},
-     "output_type": "execute_result"
-    }
-   ],
-   "source": [
-    "# Check data types\n",
-    "mentalhealth.dtypes"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 7,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# # export to csv\n",
-    "# filetime = time.strftime(\"%y%m%d_%H%M%S\", time.localtime())\n",
-    "# mentalhealth.to_csv('/Users/ericrodriguez/Documents/Projects/project 3 - nlp reddit/data/{}_{}.csv'.format(subreddit, filetime), index=False)"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "#### Scraping data from CoronavirusUS subreddit"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 10,
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stdout",
-     "output_type": "stream",
-     "text": [
-      "0\n",
-      "100\n",
-      "200\n",
-      "300\n",
-      "400\n",
-      "500\n",
-      "600\n",
-      "700\n",
-      "800\n",
-      "900\n",
-      "1000\n",
-      "1100\n",
-      "1200\n",
-      "1300\n",
-      "1400\n",
-      "1500\n",
-      "1600\n",
-      "1700\n",
-      "1800\n",
-      "1900\n"
-     ]
-    }
-   ],
-   "source": [
-    "# Subreddit to be scraped\n",
-    "subreddit = 'CoronavirusUS'\n",
-    "\n",
-    "# Time parameters\n",
-    "after = 1611140400 # epoch timestamp for 1/20/2021 6am GMT -04:00 DST\n",
-    "before = 1618912800 # epoch timestamp for 4/20/2021 6am GMT -04:00 DST\n",
-    "\n",
-    "# h/t stack overflow \n",
-    "# Set up dict for info to collect\n",
-    "posts_data_cv = {'created_utc':[],\n",
-    "              'url':[],\n",
-    "              'full_link':[],\n",
-    "              'id':[],\n",
-    "              'num_comments':[],\n",
-    "              'title':[],\n",
-    "              'selftext':[],\n",
-    "              'subreddit':[]\n",
-    "              }\n",
-    "\n",
-    "headers = {'User-agent': 'Reddit Post Collector'}\n",
-    "\n",
-    "# Set up function to return submission data\n",
-    "def get_submissions(**kwargs):\n",
-    "    res = requests.get(\"https://api.pushshift.io/reddit/submission/search/\",\n",
-    "                       params=kwargs,\n",
-    "                       headers=headers)\n",
-    "    if res.status_code == 200:\n",
-    "        data = res.json()\n",
-    "        return data['data']\n",
-    "    else:\n",
-    "        print(res.status_code)\n",
-    "\n",
-    "count = 0\n",
-    "\n",
-    "# Collect up to 2,000 posts as long as there are posts to collect\n",
-    "while True and len(set(posts_data_cv['created_utc'])) <= 1900:\n",
-    "    print(count)\n",
-    "    count += 1*100\n",
-    "    \n",
-    "    posts = get_submissions(subreddit=subreddit,\n",
-    "                            size=100,\n",
-    "                            after=after, #pulls submissions only after this date\n",
-    "                            before=before, #pulls submissions only before this date\n",
-    "                            sort='asc', #returns data with earliest date first\n",
-    "                            sort_type='created_utc')\n",
-    "    if not posts:\n",
-    "        break\n",
-    "\n",
-    "    for post in posts:\n",
-    "        # Keep track of position for the next call in while loop\n",
-    "        after = post['created_utc']\n",
-    "\n",
-    "        # Append info to posts_data dict\n",
-    "        posts_data_cv['created_utc'].append(post['created_utc'])\n",
-    "        posts_data_cv['url'].append(post['url'])\n",
-    "        posts_data_cv['full_link'].append(post['full_link'])\n",
-    "        posts_data_cv['id'].append(post['id'])\n",
-    "        posts_data_cv['num_comments'].append(post['num_comments'])\n",
-    "        posts_data_cv['title'].append(post['title'])\n",
-    "        try:\n",
-    "            posts_data_cv['selftext'].append(post['selftext'])\n",
-    "        except KeyError:\n",
-    "            posts_data_cv['selftext'].append(\"NaN\")\n",
-    "        posts_data_cv['subreddit'].append(post['subreddit'])\n",
-    "\n",
-    "    time.sleep(1)\n",
-    "\n",
-    "# Save posts to dataframe\n",
-    "coronavirus = pd.DataFrame(posts_data_cv)\n",
-    "\n",
-    "# Create `timestamp` column with `created_utc` translated into readable time\n",
-    "def get_date(created):\n",
-    "    return dt.datetime.fromtimestamp(created)\n",
-    "\n",
-    "_timestamp = coronavirus['created_utc'].apply(get_date)\n",
-    "coronavirus = coronavirus.assign(timestamp = _timestamp)"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# if arrays are unequal lengths\n",
-    "# coronavirus = pd.DataFrame(dict([(k,pd.Series(v)) for k,v in posts_data_cv.items()]))"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 11,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/plain": [
-       "(1999, 9)"
-      ]
-     },
-     "execution_count": 11,
-     "metadata": {},
-     "output_type": "execute_result"
-    }
-   ],
-   "source": [
-    "coronavirus.shape"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 13,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/html": [
-       "<div>\n",
-       "<style scoped>\n",
-       "    .dataframe tbody tr th:only-of-type {\n",
-       "        vertical-align: middle;\n",
-       "    }\n",
-       "\n",
-       "    .dataframe tbody tr th {\n",
-       "        vertical-align: top;\n",
-       "    }\n",
-       "\n",
-       "    .dataframe thead th {\n",
-       "        text-align: right;\n",
-       "    }\n",
-       "</style>\n",
-       "<table border=\"1\" class=\"dataframe\">\n",
-       "  <thead>\n",
-       "    <tr style=\"text-align: right;\">\n",
-       "      <th></th>\n",
-       "      <th>created_utc</th>\n",
-       "      <th>url</th>\n",
-       "      <th>full_link</th>\n",
-       "      <th>id</th>\n",
-       "      <th>num_comments</th>\n",
-       "      <th>title</th>\n",
-       "      <th>selftext</th>\n",
-       "      <th>subreddit</th>\n",
-       "      <th>timestamp</th>\n",
-       "    </tr>\n",
-       "  </thead>\n",
-       "  <tbody>\n",
-       "    <tr>\n",
-       "      <th>0</th>\n",
-       "      <td>1611140877</td>\n",
-       "      <td>https://denver.cbslocal.com/2021/01/19/doublin...</td>\n",
-       "      <td>https://www.reddit.com/r/CoronavirusUS/comment...</td>\n",
-       "      <td>l174fa</td>\n",
-       "      <td>22</td>\n",
-       "      <td>Doubling Up Masks Creates ‘Obstacle Course’ Fo...</td>\n",
-       "      <td></td>\n",
-       "      <td>CoronavirusUS</td>\n",
-       "      <td>2021-01-20 06:07:57</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>1</th>\n",
-       "      <td>1611141286</td>\n",
-       "      <td>https://www.reddit.com/r/CoronavirusUS/comment...</td>\n",
-       "      <td>https://www.reddit.com/r/CoronavirusUS/comment...</td>\n",
-       "      <td>l177oa</td>\n",
-       "      <td>5</td>\n",
-       "      <td>Covid 19 sweating</td>\n",
-       "      <td>Every night since after the first week of covi...</td>\n",
-       "      <td>CoronavirusUS</td>\n",
-       "      <td>2021-01-20 06:14:46</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>2</th>\n",
-       "      <td>1611148694</td>\n",
-       "      <td>https://sweepmama.com/2021-how-to-stay-safe-fr...</td>\n",
-       "      <td>https://www.reddit.com/r/CoronavirusUS/comment...</td>\n",
-       "      <td>l18zuu</td>\n",
-       "      <td>0</td>\n",
-       "      <td>COVID-19 2021 - How to stay safe from COVID-19...</td>\n",
-       "      <td></td>\n",
-       "      <td>CoronavirusUS</td>\n",
-       "      <td>2021-01-20 08:18:14</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>3</th>\n",
-       "      <td>1611151980</td>\n",
-       "      <td>https://v.redd.it/adcbnpbdwec61</td>\n",
-       "      <td>https://www.reddit.com/r/CoronavirusUS/comment...</td>\n",
-       "      <td>l19xor</td>\n",
-       "      <td>11</td>\n",
-       "      <td>64% of Doomers Don’t Believe Fauci Said This:</td>\n",
-       "      <td></td>\n",
-       "      <td>CoronavirusUS</td>\n",
-       "      <td>2021-01-20 09:13:00</td>\n",
-       "    </tr>\n",
-       "    <tr>\n",
-       "      <th>4</th>\n",
-       "      <td>1611153348</td>\n",
-       "      <td>https://www.freep.com/story/news/health/2021/0...</td>\n",
-       "      <td>https://www.reddit.com/r/CoronavirusUS/comment...</td>\n",
-       "      <td>l1acqx</td>\n",
-       "      <td>54</td>\n",
-       "      <td>Nearly 12,000 doses of Moderna COVID-19 vaccin...</td>\n",
-       "      <td></td>\n",
-       "      <td>CoronavirusUS</td>\n",
-       "      <td>2021-01-20 09:35:48</td>\n",
-       "    </tr>\n",
-       "  </tbody>\n",
-       "</table>\n",
-       "</div>"
-      ],
-      "text/plain": [
-       "   created_utc                                                url  \\\n",
-       "0   1611140877  https://denver.cbslocal.com/2021/01/19/doublin...   \n",
-       "1   1611141286  https://www.reddit.com/r/CoronavirusUS/comment...   \n",
-       "2   1611148694  https://sweepmama.com/2021-how-to-stay-safe-fr...   \n",
-       "3   1611151980                    https://v.redd.it/adcbnpbdwec61   \n",
-       "4   1611153348  https://www.freep.com/story/news/health/2021/0...   \n",
-       "\n",
-       "                                           full_link      id  num_comments  \\\n",
-       "0  https://www.reddit.com/r/CoronavirusUS/comment...  l174fa            22   \n",
-       "1  https://www.reddit.com/r/CoronavirusUS/comment...  l177oa             5   \n",
-       "2  https://www.reddit.com/r/CoronavirusUS/comment...  l18zuu             0   \n",
-       "3  https://www.reddit.com/r/CoronavirusUS/comment...  l19xor            11   \n",
-       "4  https://www.reddit.com/r/CoronavirusUS/comment...  l1acqx            54   \n",
-       "\n",
-       "                                               title  \\\n",
-       "0  Doubling Up Masks Creates ‘Obstacle Course’ Fo...   \n",
-       "1                                  Covid 19 sweating   \n",
-       "2  COVID-19 2021 - How to stay safe from COVID-19...   \n",
-       "3      64% of Doomers Don’t Believe Fauci Said This:   \n",
-       "4  Nearly 12,000 doses of Moderna COVID-19 vaccin...   \n",
-       "\n",
-       "                                            selftext      subreddit  \\\n",
-       "0                                                     CoronavirusUS   \n",
-       "1  Every night since after the first week of covi...  CoronavirusUS   \n",
-       "2                                                     CoronavirusUS   \n",
-       "3                                                     CoronavirusUS   \n",
-       "4                                                     CoronavirusUS   \n",
-       "\n",
-       "            timestamp  \n",
-       "0 2021-01-20 06:07:57  \n",
-       "1 2021-01-20 06:14:46  \n",
-       "2 2021-01-20 08:18:14  \n",
-       "3 2021-01-20 09:13:00  \n",
-       "4 2021-01-20 09:35:48  "
-      ]
-     },
-     "execution_count": 13,
-     "metadata": {},
-     "output_type": "execute_result"
-    }
-   ],
-   "source": [
-    "#evaluate r/CoronavirusUS data frame\n",
-    "coronavirus.head()"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 14,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/plain": [
-       "created_utc              int64\n",
-       "url                     object\n",
-       "full_link               object\n",
-       "id                      object\n",
-       "num_comments             int64\n",
-       "title                   object\n",
-       "selftext                object\n",
-       "subreddit               object\n",
-       "timestamp       datetime64[ns]\n",
-       "dtype: object"
-      ]
-     },
-     "execution_count": 14,
-     "metadata": {},
-     "output_type": "execute_result"
-    }
-   ],
-   "source": [
-    "# Check data types\n",
-    "coronavirus.dtypes"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 16,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# # export to csv\n",
-    "# filetime = time.strftime(\"%y%m%d_%H%M%S\", time.localtime())\n",
-    "# coronavirus.to_csv('/Users/ericrodriguez/Documents/Projects/project 3 - nlp reddit/data/{}_{}.csv'.format(subreddit, filetime), index=False)"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3 (ipykernel)",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.8.5"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 4
-}
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Project 3: Reddit Scraping & NLP
+# 
+# ## Part 1 - Scraping
+
+# In[1]:
+
+
+# Import libraries
+import pandas as pd
+import numpy as np
+import requests
+import json
+import csv
+import time
+import datetime as dt
+import math
+import itertools
+
+
+# In[2]:
+
+
+# pushshift url template
+# https://api.pushshift.io/reddit/search/submission?subreddit={}&after={}&before={}&size={}
+# max request size is 100!
+
+
+# ### Data Collection
+
+# #### Scraping data from mentalhealth subreddit
+
+# In[3]:
+
+
+# Subreddit to be scraped
+subreddit = 'mentalhealth'
+
+# Time parameters
+after = 1611140400 # epoch timestamp for 1/20/2021 6am GMT -04:00 DST
+before = 1618912800 # epoch timestamp for 4/20/2021 6am GMT -04:00 DST
+
+# h/t stack overflow 
+# Set up dict for info to collect
+posts_data_mh = {'created_utc':[],
+              'url':[],
+              'full_link':[],
+              'id':[],
+              'num_comments':[],
+              'title':[],
+              'selftext':[],
+              'subreddit':[]
+              }
+
+headers = {'User-agent': 'Reddit Post Collector'}
+
+# Set up function to return submission data
+def get_submissions(**kwargs):
+    res = requests.get("https://api.pushshift.io/reddit/submission/search/",
+                       params=kwargs,
+                       headers=headers)
+    if res.status_code == 200:
+        data = res.json()
+        return data['data']
+    else:
+        print(res.status_code)
+
+count = 0
+
+# Collect up to 2,000 posts as long as there are posts to collect
+while True and len(set(posts_data_mh['created_utc'])) <= 1900:
+    print(count)
+    count += 1*100
+    
+    posts = get_submissions(subreddit=subreddit,
+                            size=100,
+                            after=after, #pulls submissions only after this date
+                            before=before, #pulls submissions only before this date
+                            sort='asc', #returns data with earliest date first
+                            sort_type='created_utc')
+    if not posts:
+        break
+
+    for post in posts:
+        # Keep track of position for the next call in while loop
+        after = post['created_utc']
+
+        # Append info to posts_data dict
+        posts_data_mh['created_utc'].append(post['created_utc'])
+        posts_data_mh['url'].append(post['url'])
+        posts_data_mh['full_link'].append(post['full_link'])
+        posts_data_mh['id'].append(post['id'])
+        posts_data_mh['num_comments'].append(post['num_comments'])
+        posts_data_mh['title'].append(post['title'])
+        posts_data_mh['selftext'].append(post['selftext'])
+        posts_data_mh['subreddit'].append(post['subreddit'])
+
+    time.sleep(1)
+
+# Save posts to dataframe
+mentalhealth = pd.DataFrame(posts_data_mh)
+
+# Create `timestamp` column with `created_utc` translated into readable time
+def get_date(created):
+    return dt.datetime.fromtimestamp(created)
+
+_timestamp = mentalhealth['created_utc'].apply(get_date)
+mentalhealth = mentalhealth.assign(timestamp = _timestamp)
+
+
+# In[4]:
+
+
+mentalhealth.shape
+
+
+# In[5]:
+
+
+# Check r/mentalhealth dataframe
+mentalhealth.tail()
+
+
+# In[6]:
+
+
+# Check data types
+mentalhealth.dtypes
+
+
+# In[7]:
+
+
+# # export to csv
+# filetime = time.strftime("%y%m%d_%H%M%S", time.localtime())
+# mentalhealth.to_csv('/Users/ericrodriguez/Documents/Projects/project 3 - nlp reddit/data/{}_{}.csv'.format(subreddit, filetime), index=False)
+
+
+# #### Scraping data from CoronavirusUS subreddit
+
+# In[10]:
+
+
+# Subreddit to be scraped
+subreddit = 'CoronavirusUS'
+
+# Time parameters
+after = 1611140400 # epoch timestamp for 1/20/2021 6am GMT -04:00 DST
+before = 1618912800 # epoch timestamp for 4/20/2021 6am GMT -04:00 DST
+
+# h/t stack overflow 
+# Set up dict for info to collect
+posts_data_cv = {'created_utc':[],
+              'url':[],
+              'full_link':[],
+              'id':[],
+              'num_comments':[],
+              'title':[],
+              'selftext':[],
+              'subreddit':[]
+              }
+
+headers = {'User-agent': 'Reddit Post Collector'}
+
+# Set up function to return submission data
+def get_submissions(**kwargs):
+    res = requests.get("https://api.pushshift.io/reddit/submission/search/",
+                       params=kwargs,
+                       headers=headers)
+    if res.status_code == 200:
+        data = res.json()
+        return data['data']
+    else:
+        print(res.status_code)
+
+count = 0
+
+# Collect up to 2,000 posts as long as there are posts to collect
+while True and len(set(posts_data_cv['created_utc'])) <= 1900:
+    print(count)
+    count += 1*100
+    
+    posts = get_submissions(subreddit=subreddit,
+                            size=100,
+                            after=after, #pulls submissions only after this date
+                            before=before, #pulls submissions only before this date
+                            sort='asc', #returns data with earliest date first
+                            sort_type='created_utc')
+    if not posts:
+        break
+
+    for post in posts:
+        # Keep track of position for the next call in while loop
+        after = post['created_utc']
+
+        # Append info to posts_data dict
+        posts_data_cv['created_utc'].append(post['created_utc'])
+        posts_data_cv['url'].append(post['url'])
+        posts_data_cv['full_link'].append(post['full_link'])
+        posts_data_cv['id'].append(post['id'])
+        posts_data_cv['num_comments'].append(post['num_comments'])
+        posts_data_cv['title'].append(post['title'])
+        try:
+            posts_data_cv['selftext'].append(post['selftext'])
+        except KeyError:
+            posts_data_cv['selftext'].append("NaN")
+        posts_data_cv['subreddit'].append(post['subreddit'])
+
+    time.sleep(1)
+
+# Save posts to dataframe
+coronavirus = pd.DataFrame(posts_data_cv)
+
+# Create `timestamp` column with `created_utc` translated into readable time
+def get_date(created):
+    return dt.datetime.fromtimestamp(created)
+
+_timestamp = coronavirus['created_utc'].apply(get_date)
+coronavirus = coronavirus.assign(timestamp = _timestamp)
+
+
+# In[ ]:
+
+
+# if arrays are unequal lengths
+# coronavirus = pd.DataFrame(dict([(k,pd.Series(v)) for k,v in posts_data_cv.items()]))
+
+
+# In[11]:
+
+
+coronavirus.shape
+
+
+# In[13]:
+
+
+#evaluate r/CoronavirusUS data frame
+coronavirus.head()
+
+
+# In[14]:
+
+
+# Check data types
+coronavirus.dtypes
+
+
+# In[16]:
+
+
+# # export to csv
+# filetime = time.strftime("%y%m%d_%H%M%S", time.localtime())
+# coronavirus.to_csv('/Users/ericrodriguez/Documents/Projects/project 3 - nlp reddit/data/{}_{}.csv'.format(subreddit, filetime), index=False)
+
